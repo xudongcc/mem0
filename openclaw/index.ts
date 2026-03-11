@@ -19,6 +19,9 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
+// Disable telemetry
+process?.env?.MEM0_TELEMETRY === "false";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -29,6 +32,7 @@ type Mem0Config = {
   mode: Mem0Mode;
   // Platform-specific
   apiKey?: string;
+  host?: string;
   orgId?: string;
   projectId?: string;
   customInstructions: string;
@@ -125,6 +129,7 @@ class PlatformProvider implements Mem0Provider {
 
   constructor(
     private readonly apiKey: string,
+    private readonly host?: string,
     private readonly orgId?: string,
     private readonly projectId?: string,
   ) { }
@@ -137,8 +142,9 @@ class PlatformProvider implements Mem0Provider {
   }
 
   private async _init(): Promise<void> {
-    const { default: MemoryClient } = await import("mem0ai");
+    const { default: MemoryClient } = await import("./client");
     const opts: Record<string, string> = { apiKey: this.apiKey };
+    if (this.host) opts.host = this.host;
     if (this.orgId) opts.org_id = this.orgId;
     if (this.projectId) opts.project_id = this.projectId;
     this.client = new MemoryClient(opts);
@@ -493,6 +499,7 @@ const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
 const ALLOWED_KEYS = [
   "mode",
   "apiKey",
+  "host",
   "userId",
   "orgId",
   "projectId",
@@ -550,6 +557,7 @@ const mem0ConfigSchema = {
       mode,
       apiKey:
         typeof cfg.apiKey === "string" ? resolveEnvVars(cfg.apiKey) : undefined,
+      host: typeof cfg.host === "string" ? cfg.host : undefined,
       userId:
         typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
       orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
@@ -593,7 +601,7 @@ function createProvider(
     );
   }
 
-  return new PlatformProvider(cfg.apiKey!, cfg.orgId, cfg.projectId);
+  return new PlatformProvider(cfg.apiKey!, cfg.host, cfg.orgId, cfg.projectId);
 }
 
 // ============================================================================
